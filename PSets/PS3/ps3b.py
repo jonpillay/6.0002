@@ -202,21 +202,17 @@ def simulationWithoutDrug(numViruses, maxPop, maxBirthProb, clearProb,
             totalsArray[n] += subject.getTotalPop()
 
     meanList = [n/numTrials for n in totalsArray]
-    print(len(meanList))
 
     stepList = []
-    yList = [1,2,3,4,5,6,7,8,9,10]
 
     for i in range(300):
         stepList.append(i)
-
-    print(len(stepList))
 
     plt.plot(stepList, meanList)
     plt.show()
 
 
-simulationWithoutDrug(10, 3000, 0.4, 0.35, 2)
+#simulationWithoutDrug(10, 3000, 0.4, 0.35, 2)
 
 
 #
@@ -328,7 +324,21 @@ class ResistantVirus(SimpleVirus):
         NoChildException if this virus particle does not reproduce.
         """
 
-        # TODO
+        rand = random.random()
+        for i in activeDrugs:
+            if self.isResistantTo(i) == False:
+                raise NoChildException
+        if rand <= self.getMaxBirthProb() * (1 - popDensity):
+            sprog_resistances = {}
+            for x in self.getResistances():
+                if random.random() <= 1 - self.getMutProb():
+                    sprog_resistances[x] = True
+            for y in activeDrugs:
+                if random.random() >= 1 - self.getMutProb():
+                    sprog_resistances[y] = True
+            return ResistantVirus(self.getMaxBirthProb(), self.getClearProb(), sprog_resistances, self.getMutProb())
+        else:
+            raise NoChildException
 
             
 
@@ -350,7 +360,9 @@ class TreatedPatient(Patient):
         maxPop: The  maximum virus population for this patient (an integer)
         """
 
-        # TODO
+        self.viruses = viruses
+        self. maxPop = maxPop
+        self.drugs = []
 
 
     def addPrescription(self, newDrug):
@@ -364,7 +376,7 @@ class TreatedPatient(Patient):
         postcondition: The list of drugs being administered to a patient is updated
         """
 
-        # TODO
+        self.drugs.append(newDrug)
 
 
     def getPrescriptions(self):
@@ -375,7 +387,7 @@ class TreatedPatient(Patient):
         patient.
         """
 
-        # TODO
+        return self.drugs
 
 
     def getResistPop(self, drugResist):
@@ -390,7 +402,14 @@ class TreatedPatient(Patient):
         drugs in the drugResist list.
         """
 
-        # TODO
+        virusesCopy = self.viruses.copy()
+
+        for i in virusesCopy:
+            for j in drugResist:
+                if i.isResistantTo(j) == False:
+                    virusesCopy.remove(i)
+        
+        return len(virusesCopy)
 
 
     def update(self):
@@ -414,7 +433,26 @@ class TreatedPatient(Patient):
         integer)
         """
 
-        # TODO
+        virusCopy = self.viruses.copy()
+
+        #self.viruses = [(self.viruses[n] if self.viruses[n].doesClear() == False else self.viruses.pop[n]) for n in range(len(virusCopy))]
+
+        for i in self.getViruses():
+            if i.doesClear() == True:
+                self.viruses.remove(i)
+
+
+        popDensity = self.getTotalPop()/self.getMaxPop()
+
+        for i in self.viruses:
+            for j in self.getPrescriptions():
+                if i.isResistantTo(j) == False:
+                    break
+            try:
+                i.reproduce(popDensity, self.getPrescriptions())
+                self.viruses.append(i)
+            except NoChildException:
+                continue
 
 
 
@@ -444,4 +482,30 @@ def simulationWithDrug(numViruses, maxPop, maxBirthProb, clearProb, resistances,
     
     """
 
-    # TODO
+    totalsArray = np.array([0 for n in range(300)])
+    resistArray = np.array([0 for n in range(300)])
+
+    for i in range(numTrials):
+        initialLoad = [ResistantVirus(maxBirthProb, clearProb, resistances, mutProb) for n in range(numViruses)]
+        subject = TreatedPatient(initialLoad, maxPop)
+        for n in range(300):
+            if n == 149:
+                subject.addPrescription('guttagonol')
+            subject.update()
+            totalsArray[n] += subject.getTotalPop()
+            resistArray[n] += subject.getResistPop(subject.getPrescriptions())
+
+    meanList = [n/numTrials for n in totalsArray]
+    resistMeanList = [n/numTrials for n in resistArray]
+
+    stepList = []
+    yList = [1,2,3,4,5,6,7,8,9,10]
+
+    for i in range(300):
+        stepList.append(i)
+
+    plt.plot(stepList, meanList, resistMeanList)
+    plt.show()
+
+simulationWithDrug(100, 1000, 0.1, 0.05, {'guttagonol': False},
+                       0.05, 1)
