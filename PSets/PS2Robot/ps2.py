@@ -6,6 +6,7 @@ import random
 import ps2_visualize
 import pylab
 
+
 ##################
 ## Comment/uncomment the relevant lines, depending on which version of Python you have
 ##################
@@ -18,6 +19,8 @@ import pylab
 #from ps2_verify_movement36 import testRobotMovement
 # If you get a "Bad magic number" ImportError, you are not using Python 3.6
 
+
+#from ps2_verify_movement38 import testRobotMovement
 
 # === Provided class Position
 class Position(object):
@@ -278,22 +281,21 @@ def runSimulation(num_robots, speed, width, height, min_coverage, num_trials,
 
     steps_list = []
     for i in range(num_trials):
-        #robot_dict = dict()
         room = RectangularRoom(width, height)
-        robot_list = []
         robot_list = [StandardRobot(room, speed) for n in range(num_robots)]
         steps=0
-        while room.getNumCleanedTiles() < math.floor(room.getNumTiles()*min_coverage):
-            #robot_list = map(robot_type.updatePositionAndClean, robot_list)
-            for n in robot_list:
-                robot_type.updatePositionAndClean(n)
+        while room.getNumCleanedTiles() < math.ceil(room.getNumTiles()*min_coverage):
+            #print(room.getNumCleanedTiles())
+            #map(robot_type.updatePositionAndClean, robot_list) #Tried different variations including lambda, but I'm missing something
+            """for n in robot_list:
+                robot_type.updatePositionAndClean(n)"""
+            [robot_type.updatePositionAndClean(x) for x in robot_list]
             steps += 1
         steps_list.append(steps)
-    print(steps_list)
-    return math.floor(sum(steps_list)/num_trials)
+    return math.ceil(sum(steps_list)/num_trials)
 
 # Uncomment this line to see how much your simulation takes on average
-#print(runSimulation(1, 1.0, 10, 10, 0.75, 30, StandardRobot))
+#runSimulation(1, 1.0, 10, 10, 0.75, 30, StandardRobot)
 
 
 # === Problem 5
@@ -315,6 +317,7 @@ class RandomWalkRobot(Robot):
         Move the robot to a new position and mark the tile it is on as having
         been cleaned.
         """
+
         new_pos = self.pos.getNewPosition(self.speed, self.direction)
         if self.room.isPositionInRoom(new_pos) == True:
             self.room.cleanTileAtPosition(new_pos)
@@ -362,11 +365,11 @@ def showPlot1(title, x_label, y_label):
     for num_robots in num_robot_range:
         print("Plotting", num_robots, "robots...")
         times1.append(runSimulation(num_robots, 1.0, 20, 20, 0.8, 20, StandardRobot))
-        times2.append(runSimulation(num_robots, 1.0, 20, 20, 0.8, 20, RandomWalkRobot))
+        times2.append(runSimulation(num_robots, 1.0, 20, 20, 0.8, 20, SlightlyBetterRobot))
     pylab.plot(num_robot_range, times1)
     pylab.plot(num_robot_range, times2)
     pylab.title(title)
-    pylab.legend(('StandardRobot', 'RandomWalkRobot'))
+    pylab.legend(('StandardRobot', 'SlightlyBetterRobot'))
     pylab.xlabel(x_label)
     pylab.ylabel(y_label)
     pylab.show()
@@ -384,11 +387,11 @@ def showPlot2(title, x_label, y_label):
         print("Plotting cleaning time for a room of width:", width, "by height:", height)
         aspect_ratios.append(float(width) / height)
         times1.append(runSimulation(2, 1.0, width, height, 0.8, 200, StandardRobot))
-        times2.append(runSimulation(2, 1.0, width, height, 0.8, 200, RandomWalkRobot))
+        times2.append(runSimulation(2, 1.0, width, height, 0.8, 200, SlightlyBetterRobot))
     pylab.plot(aspect_ratios, times1)
     pylab.plot(aspect_ratios, times2)
     pylab.title(title)
-    pylab.legend(('StandardRobot', 'RandomWalkRobot'))
+    pylab.legend(('StandardRobot', 'SlightlyBetterRobot'))
     pylab.xlabel(x_label)
     pylab.ylabel(y_label)
     pylab.show()
@@ -411,3 +414,5 @@ def showPlot2(title, x_label, y_label):
 #
 #       (... your call here ...)
 #
+
+showPlot2('boring ass graph', 'x', 'y')
