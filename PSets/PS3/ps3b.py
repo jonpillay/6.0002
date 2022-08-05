@@ -168,8 +168,7 @@ class Patient(object):
 
         for i in self.viruses:
             try:
-                i.reproduce(popDensity)
-                self.viruses.append(i)
+                self.viruses.append(i.reproduce(popDensity))
             except NoChildException:
                 continue
 
@@ -212,7 +211,7 @@ def simulationWithoutDrug(numViruses, maxPop, maxBirthProb, clearProb,
     plt.show()
 
 
-#simulationWithoutDrug(10, 3000, 0.4, 0.35, 2)
+#simulationWithoutDrug(10, 3000, 0.1, 0.05, 2)
 
 
 #
@@ -241,8 +240,7 @@ class ResistantVirus(SimpleVirus):
         the probability of the offspring acquiring or losing resistance to a drug.
         """
 
-        self.maxBirthProb = maxBirthProb
-        self.clearProb = clearProb
+        super().__init__(maxBirthProb, clearProb)
         self.resistances = resistances
         self.mutProb = mutProb
 
@@ -273,10 +271,11 @@ class ResistantVirus(SimpleVirus):
         
         resist_dict = self.getResistances()
 
-        if resist_dict[drug] == True:
-            return True
-        else:
-            return False
+        try:
+            if resist_dict[drug] == True:
+                return True
+        except KeyError:
+             return False
 
 
     def reproduce(self, popDensity, activeDrugs):
@@ -324,19 +323,21 @@ class ResistantVirus(SimpleVirus):
         NoChildException if this virus particle does not reproduce.
         """
 
-        rand = random.random()
-        for i in activeDrugs:
-            if self.isResistantTo(i) == False:
+        
+        if all(self.isResistantTo(i) for i in activeDrugs) == True:
+            rand = random.random()
+            if rand <= self.getMaxBirthProb() * (1 - popDensity):
+                sprog_resistances = self.resistances.copy()
+                for x in sprog_resistances:
+                    rand = random.random()
+                    if rand <= self.mutProb:
+                        if self.resistances[x] == True:
+                            sprog_resistances[x] = False
+                        else:
+                            sprog_resistances[x] = True
+                return ResistantVirus(self.getMaxBirthProb(), self.getClearProb(), sprog_resistances, self.getMutProb())
+            else:
                 raise NoChildException
-        if rand <= self.getMaxBirthProb() * (1 - popDensity):
-            sprog_resistances = {}
-            for x in self.getResistances():
-                if random.random() <= 1 - self.getMutProb():
-                    sprog_resistances[x] = True
-            for y in activeDrugs:
-                if random.random() >= 1 - self.getMutProb():
-                    sprog_resistances[y] = True
-            return ResistantVirus(self.getMaxBirthProb(), self.getClearProb(), sprog_resistances, self.getMutProb())
         else:
             raise NoChildException
 
@@ -360,8 +361,7 @@ class TreatedPatient(Patient):
         maxPop: The  maximum virus population for this patient (an integer)
         """
 
-        self.viruses = viruses
-        self. maxPop = maxPop
+        super().__init__(viruses, maxPop)
         self.drugs = []
 
 
@@ -375,8 +375,8 @@ class TreatedPatient(Patient):
 
         postcondition: The list of drugs being administered to a patient is updated
         """
-
-        self.drugs.append(newDrug)
+        if newDrug not in self.getPrescriptions():
+            self.drugs.append(newDrug)
 
 
     def getPrescriptions(self):
@@ -403,13 +403,16 @@ class TreatedPatient(Patient):
         """
 
         virusesCopy = self.viruses.copy()
+        resistViruses = 0
+        self.drugResist = drugResist
 
         for i in virusesCopy:
-            for j in drugResist:
-                if i.isResistantTo(j) == False:
-                    virusesCopy.remove(i)
+            if all(i.isResistantTo(j) for j in self.drugResist) == True:
+                resistViruses += 1
+
+        return resistViruses
+
         
-        return len(virusesCopy)
 
 
     def update(self):
@@ -437,20 +440,16 @@ class TreatedPatient(Patient):
 
         #self.viruses = [(self.viruses[n] if self.viruses[n].doesClear() == False else self.viruses.pop[n]) for n in range(len(virusCopy))]
 
-        for i in self.getViruses():
+        for i in virusCopy:
             if i.doesClear() == True:
                 self.viruses.remove(i)
 
 
         popDensity = self.getTotalPop()/self.getMaxPop()
 
-        for i in self.viruses:
-            for j in self.getPrescriptions():
-                if i.isResistantTo(j) == False:
-                    break
+        for i in self.getViruses():
             try:
-                i.reproduce(popDensity, self.getPrescriptions())
-                self.viruses.append(i)
+                self.viruses.append(i.reproduce(popDensity, self.drugs))
             except NoChildException:
                 continue
 
@@ -489,23 +488,24 @@ def simulationWithDrug(numViruses, maxPop, maxBirthProb, clearProb, resistances,
         initialLoad = [ResistantVirus(maxBirthProb, clearProb, resistances, mutProb) for n in range(numViruses)]
         subject = TreatedPatient(initialLoad, maxPop)
         for n in range(300):
+            totalsArray[n] += subject.getTotalPop()
+            resistArray[n] += subject.getResistPop(['guttagonol'])
+            subject.update()
             if n == 149:
                 subject.addPrescription('guttagonol')
-            subject.update()
-            totalsArray[n] += subject.getTotalPop()
-            resistArray[n] += subject.getResistPop(subject.getPrescriptions())
 
-    meanList = [n/numTrials for n in totalsArray]
-    resistMeanList = [n/numTrials for n in resistArray]
+    meanList = [p/numTrials for p in totalsArray]
+    resistMeanList = [m/numTrials for m in resistArray]
 
     stepList = []
-    yList = [1,2,3,4,5,6,7,8,9,10]
 
     for i in range(300):
         stepList.append(i)
 
-    plt.plot(stepList, meanList, resistMeanList)
+    plt.plot(stepList, meanList, label = r'General')
+    plt.plot(stepList, resistMeanList, label = r'Resistant')
+    plt.legend()
     plt.show()
 
-simulationWithDrug(100, 1000, 0.1, 0.05, {'guttagonol': False},
-                       0.05, 1)
+
+simulationWithDrug(100, 1000, 0.1, 0.04, {'guttagonol': False}, 0.05, 100)
